@@ -18,7 +18,7 @@ avg(x.quant), avg(y.quant)
 // SELECT CONDITION-VECT([Sigma]):
 x.cust = cust and x.prod = prod,y.cust <> cust and y.prod = prod
 // HAVING CONDITION(G):
-
+avg(x.quant) > 2*avg(y.quant) and avg(x.quant) > 4+5*3+sum(z.quant)
 ===========================PostgreSQL Query===========================
 WITH
 "B1" AS

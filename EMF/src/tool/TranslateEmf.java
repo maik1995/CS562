@@ -150,25 +150,25 @@ public class TranslateEmf {
 				right = sub[1];
 				// if it is not a number
 				if(left.contains("(")) {
-					m = Pattern.compile("([a-zA-Z]+)\\(([A-Za-z0-9]+)([.]*)([a-zA-Z]+)\\)(.*)").matcher(left);
+					m = Pattern.compile("(.*[-+*/]*)(avg|count|sum|min|max)\\(([A-Za-z0-9]+)([.]*)([a-zA-Z]+)\\)(.*)").matcher(left);
 					m.find();
-					left =  m.group(2) + "." + m.group(1) + "_" + m.group(4) + m.group(5);
+					left =  m.group(1) + m.group(3) + "." + m.group(2) + "_" + m.group(5) + m.group(6);
 				}
 				else if(left.matches("(.*)[A-Za-z0-9][.][A-Za-z](.*)")) {
-					m = Pattern.compile("([A-Za-z0-9]+)([.])([a-zA-Z]+)(.*)").matcher(left);
+					m = Pattern.compile("(.*[-+*/]*)([A-Za-z0-9]+)([.])([a-zA-Z]+)(.*)").matcher(left);
 					m.find();
-					left = m.group(1) + "." + m.group(3) + m.group(4);
+					left = m.group(1)+ m.group(2) + "." + m.group(4) + m.group(5);
 				}
 				
 				if(right.contains("(")) {
-					m = Pattern.compile("([a-zA-Z]+)\\(([A-Za-z0-9]+)([.]*)([a-zA-Z]+)\\)(.*)").matcher(right);
+					m = Pattern.compile("(.*[-+*/]*)(avg|count|sum|min|max)\\(([A-Za-z0-9]+)([.]*)([a-zA-Z]+)\\)(.*)").matcher(right);
 					m.find();
-					right = m.group(2) + "." + m.group(1) + "_" + m.group(4) + m.group(5);
+					right =m.group(1) + m.group(3) + "." + m.group(2) + "_" + m.group(5) + m.group(6);
 				}
 				else if(right.matches("(.*)[A-Za-z0-9][.][A-Za-z](.*)")) {
-					m = Pattern.compile("([A-Za-z0-9]+)([.])([a-zA-Z]+)(.*)").matcher(right);
+					m = Pattern.compile("(.*[-+*/]*)([A-Za-z0-9]+)([.])([a-zA-Z]+)(.*)").matcher(right);
 					m.find();
-					right = m.group(1) + "." + m.group(3) + m.group(4);
+					right = m.group(1)+ m.group(2) + "." + m.group(4) + m.group(5);
 				}
 				if(j < logic.size())
 					t_Conditions = t_Conditions + left + oper + right + logic.get(j);
