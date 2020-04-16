@@ -69,7 +69,7 @@ public class TranslateEmf {
 		String sub = "";
 		List<String> logic = new ArrayList<>();
 		String[] subJudge = {};
-		Pattern gv = Pattern.compile("([A-Za-z0-9]+)([.])(.*)");
+		Pattern gv = Pattern.compile("(.*)([=><!][=]*|[<>]*)([A-Za-z0-9]+)([.])(.*)");
 		Matcher m = null;
 		for(int i=0; i<Conditions.length; i++) {
 			Conditions[i] = Conditions[i].replaceAll("=", "==").replaceAll(">==", ">=").replaceAll("<==", "<=").replaceAll("<>", "!=").replaceAll(" and | AND ", "&&").replaceAll(" or | OR ", "||").replaceAll(" ", "");
@@ -85,11 +85,11 @@ public class TranslateEmf {
 				if(sub.matches("(.*)[A-Za-z0-9][.][A-Za-z](.*)")) {
 					m = gv.matcher(sub);
 					m.find();
-					groupingVariable = m.group(1);
+					groupingVariable = m.group(3);
 					if(j < logic.size())
-						column = groupingVariable + "_" +m.group(3) + logic.get(j);
+						column = m.group(1) + m.group(2) + groupingVariable + "_" +m.group(5) + logic.get(j);
 					else
-						column = groupingVariable + "_" +m.group(3);
+						column = m.group(1) + m.group(2) + groupingVariable + "_" +m.group(5);
 					if(t_Conditions.containsKey(groupingVariable)) {
 						column = t_Conditions.get(groupingVariable) + column;
 					}
