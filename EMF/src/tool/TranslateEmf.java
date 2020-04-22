@@ -7,19 +7,23 @@ public class TranslateEmf {
 	/**
 	 * 
 	 * @param attributes
-	 * @return a HashMap with GROUPING VARIABLES as key, and function are 2*i and column are 2*i+1, the Group by columns are stored by the key GroupBy, and the function like avg(quant) are stored in key 0
+	 * @return a HashMap with GROUPING VARIABLES as key, and output are like avg_quant or just quant if there are no function
 	 */
 	public static HashMap<String,String> translateAttributes(String[] attributes){
 		HashMap<String,String> t_attributes = new HashMap<>();
 		String temp = "";
 		String variableName = "";
 		String groupByAttri = "";
+		Matcher m = null;
 		for(int i=0; i<attributes.length;i++) {
+			attributes[i] = attributes[i].replaceAll(" ", "");
 			if(attributes[i].contains("(")) {
-				temp = attributes[i].substring(0, attributes[i].indexOf("(")) + ",";
+				m = Pattern.compile("([a-zA-Z]+)([(])([a-zA-Z0-9]*)([.]*)([a-zA-Z0-9]+)([)])").matcher(attributes[i]);
+				m.find();
+				temp = m.group(1) + "_";
 				if(attributes[i].contains(".")) {
-					variableName = attributes[i].substring(attributes[i].indexOf("(")+1 , attributes[i].indexOf("."));
-					temp = temp + attributes[i].substring(attributes[i].indexOf(".")+1 ,attributes[i].indexOf(")"));
+					variableName = m.group(3);
+					temp = temp + m.group(5);
 					//if there are multiple attribute link to same GROUPING VARIABLES
 					if(t_attributes.containsKey(variableName)) {
 						temp = t_attributes.get(variableName) + "," + temp;
@@ -27,7 +31,7 @@ public class TranslateEmf {
 					t_attributes.put(variableName, temp);
 				}
 				else {
-					temp = temp + attributes[i].substring(attributes[i].indexOf("(")+1 ,attributes[i].indexOf(")"));
+					temp = temp + m.group(5);
 					//if there are multiple attribute link to same GROUPING VARIABLES
 					if(t_attributes.containsKey("0")) {
 						temp = t_attributes.get("0") + "," + temp;
@@ -37,10 +41,30 @@ public class TranslateEmf {
 				}
 			}
 			else {
-				groupByAttri = groupByAttri+attributes[i]+",";
+				
+				if(attributes[i].contains(".")) {
+					m = Pattern.compile("([a-zA-Z0-9]+)([.])([a-zA-Z0-9]+)").matcher(attributes[i]);
+					m.find();
+					variableName = m.group(1);
+					temp = m.group(3);
+					//if there are multiple attribute link to same GROUPING VARIABLES
+					if(t_attributes.containsKey(variableName)) {
+						temp = t_attributes.get(variableName) + "," + temp;
+					}
+					
+					t_attributes.put(variableName, temp);
+				}
+				else {
+					groupByAttri = groupByAttri+attributes[i];
+					//if there are multiple attribute link to same GROUPING VARIABLES
+					if(t_attributes.containsKey("0")) {
+						groupByAttri = t_attributes.get("0") + "," + groupByAttri;
+					}
+					t_attributes.put("0", groupByAttri);
+					groupByAttri = "";
+				}
 			}
 		}
-		t_attributes.put("GroupBy", groupByAttri);
 		return t_attributes;
 	}
 	
@@ -87,9 +111,9 @@ public class TranslateEmf {
 					m.find();
 					groupingVariable = m.group(3);
 					if(j < logic.size())
-						column = m.group(1) + m.group(2) + groupingVariable + "_" +m.group(5) + logic.get(j);
+						column = m.group(1) + m.group(2) + groupingVariable + "." +m.group(5) + logic.get(j);
 					else
-						column = m.group(1) + m.group(2) + groupingVariable + "_" +m.group(5);
+						column = m.group(1) + m.group(2) + groupingVariable + "." +m.group(5);
 					if(t_Conditions.containsKey(groupingVariable)) {
 						column = t_Conditions.get(groupingVariable) + column;
 					}
