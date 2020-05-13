@@ -66,7 +66,7 @@ public class FindColumnType {
 			Statement stat = db.createStatement();
 			ResultSet rs = stat.executeQuery(query);
 			ResultSetMetaData mt = rs.getMetaData();
-			for(int i=1; i<mt.getColumnCount(); i++) {
+			for(int i=1; i<=mt.getColumnCount(); i++) {
 				
 				type = mt.getColumnClassName(i);
 				Name_Type.put(mt.getColumnName(i), type);

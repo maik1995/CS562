@@ -10,6 +10,11 @@ import java.util.List;
 public class ReadFile {
     
     // read file line by line
+	/**
+	 * 
+	 * @param fileName
+	 * @return Lines of the file, stored in List
+	 */
     public static List<String> readByLine(String fileName) {
         
         List<String> lines = new ArrayList<String>();
@@ -25,7 +30,8 @@ public class ReadFile {
             }
         }
         catch(FileNotFoundException e) {
-            e.printStackTrace();
+        	System.out.print("File not found!!!!!");
+//            e.printStackTrace();
         }
         catch(IOException e) {
             e.printStackTrace();

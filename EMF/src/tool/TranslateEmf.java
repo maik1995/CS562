@@ -17,8 +17,10 @@ public class TranslateEmf {
 		Matcher m = null;
 		for(int i=0; i<attributes.length;i++) {
 			attributes[i] = attributes[i].replaceAll(" ", "");
+			//if the attribute is a aggregate function
 			if(attributes[i].contains("(")) {
-				m = Pattern.compile("([a-zA-Z]+)([(])([a-zA-Z0-9]*)([.]*)([a-zA-Z0-9]+)([)])").matcher(attributes[i]);
+				//matching pattern like avg(x.quant) or avg(quant)
+				m = Pattern.compile("([a-zA-Z]+)([(])([a-zA-Z0-9]+)([.]*)([a-zA-Z0-9|*]*)([)])").matcher(attributes[i]);
 				m.find();
 				temp = m.group(1) + "_";
 				if(attributes[i].contains(".")) {
@@ -31,19 +33,20 @@ public class TranslateEmf {
 					t_attributes.put(variableName, temp);
 				}
 				else {
-					temp = temp + m.group(5);
+					temp = temp + m.group(3);
 					//if there are multiple attribute link to same GROUPING VARIABLES
-					if(t_attributes.containsKey("0")) {
-						temp = t_attributes.get("0") + "," + temp;
+					if(t_attributes.containsKey("O")) {
+						temp = t_attributes.get("O") + "," + temp;
 					}
-					t_attributes.put("0", temp);
+					t_attributes.put("O", temp);
 					
 				}
 			}
 			else {
-				
+				//if the attribute is a data of grouping variable like x.quant
 				if(attributes[i].contains(".")) {
-					m = Pattern.compile("([a-zA-Z0-9]+)([.])([a-zA-Z0-9]+)").matcher(attributes[i]);
+					//matching x.quant
+					m = Pattern.compile("([a-zA-Z0-9]+)([.])([a-zA-Z0-9|*]+)").matcher(attributes[i]);
 					m.find();
 					variableName = m.group(1);
 					temp = m.group(3);
@@ -57,10 +60,10 @@ public class TranslateEmf {
 				else {
 					groupByAttri = groupByAttri+attributes[i];
 					//if there are multiple attribute link to same GROUPING VARIABLES
-					if(t_attributes.containsKey("0")) {
-						groupByAttri = t_attributes.get("0") + "," + groupByAttri;
+					if(t_attributes.containsKey("O")) {
+						groupByAttri = t_attributes.get("O") + "," + groupByAttri;
 					}
-					t_attributes.put("0", groupByAttri);
+					t_attributes.put("O", groupByAttri);
 					groupByAttri = "";
 				}
 			}
@@ -82,7 +85,7 @@ public class TranslateEmf {
 	/**
 	 * 
 	 * @param Conditions
-	 * @return a string that can just be used in if logic and you can use groupingVariable or 0 to retrive it
+	 * @return a string that can just be used in if logic and you can use groupingVariable or O to retrive it
 	 */
 	public static HashMap<String,String> translateCondition(String[] Conditions){
 		HashMap<String,String> t_Conditions = new HashMap<>();
@@ -90,46 +93,123 @@ public class TranslateEmf {
 			return t_Conditions;
 		String groupingVariable = "";
 		String column = "";
-		String sub = "";
+		String[] sub = {};
 		List<String> logic = new ArrayList<>();
 		String[] subJudge = {};
-		Pattern gv = Pattern.compile("(.*)([=><!][=]*|[<>]*)([A-Za-z0-9]+)([.])(.*)");
+		String left = "";
+		String right = "";
+		String oper = "";
+		String left_t = "";
+		String right_t = "";
+		String temp = "";
+		Queue<String> left_logic = new LinkedList<>();
+		Queue<String> right_logic = new LinkedList<>();
+		//match pattern like x.qunant >= .....
+		Pattern gv = Pattern.compile("([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)([=><!][=]*|[<>]*)(.*)");
 		Matcher m = null;
+		Matcher n = null;
+		//replace the logic function into the logic that java can understand 
 		for(int i=0; i<Conditions.length; i++) {
-			Conditions[i] = Conditions[i].replaceAll("=", "==").replaceAll(">==", ">=").replaceAll("<==", "<=").replaceAll("<>", "!=").replaceAll(" and | AND ", "&&").replaceAll(" or | OR ", "||").replaceAll(" ", "");
+			Conditions[i] = Conditions[i].replaceAll("=", "==").replaceAll(">==", ">=").replaceAll("<==", "<=").replaceAll("<>", "!=").replaceAll(" and | AND ", "&&").replaceAll(" or | OR ", "\\|\\|").replaceAll(" ", "");
 			//find the logic and save it
 			for(int j=0; j<Conditions[i].length()-2;j++) {
-				if(Conditions[i].substring(j, j+2).matches("&&")||Conditions[i].substring(j, j+2).matches("||")) {
+				if(Conditions[i].substring(j, j+2).matches("&&")||Conditions[i].substring(j, j+2).matches("\\|\\|")) {
 					logic.add(Conditions[i].substring(j, j+2));
 				}
 			}
+			//split the condition by && or ||
 			subJudge = Conditions[i].split("&&|\\|\\|");
 			for(int j = 0; j<subJudge.length; j++) {
-				sub = subJudge[j];
-				if(sub.matches("(.*)[A-Za-z0-9][.][A-Za-z](.*)")) {
-					m = gv.matcher(sub);
-					m.find();
-					groupingVariable = m.group(3);
-					if(j < logic.size())
-						column = m.group(1) + m.group(2) + groupingVariable + "." +m.group(5) + logic.get(j);
-					else
-						column = m.group(1) + m.group(2) + groupingVariable + "." +m.group(5);
-					if(t_Conditions.containsKey(groupingVariable)) {
-						column = t_Conditions.get(groupingVariable) + column;
+				//seperate the condition by operation
+				sub = subJudge[j].split("==|>=|<=|!=|>|<");
+				m = Pattern.compile(".*([=><!][=]|[<>]).*").matcher(subJudge[j]);
+				m.find();
+				oper = m.group(1);
+				left = sub[0];
+				right = sub[1];
+				
+				left_t = "";
+				right_t = "";
+				//further separate left and right part
+				//find all the operation in left part
+				m = Pattern.compile("([-+*/])").matcher(left);
+				while(m.find())
+					left_logic.add(m.group(1));
+				//find all the operation in right part
+				m = Pattern.compile("([-+*/])").matcher(right);
+				while(m.find())
+					right_logic.add(m.group(1));
+				//find the number or things like x.quant or avg(quant) or avg(x.quant) in the left part, change avg(x.quant) into x_avg_quant
+				m = Pattern.compile("([-+*/]*)([^-+*/]+)([-+*/]*)").matcher(left);
+				while(m.find()) {
+					temp = m.group(2);
+					//if pattern match x.quant or avg(x.quant)
+					n = Pattern.compile("()([A-Za-z0-9]+)([(]*)([A-Za-z0-9]*)([.])([a-zA-Z0-9|*]*)([)]*)()").matcher(temp);
+					if(n.find()) {
+						//if pattern match avg(x.quant)
+						n = Pattern.compile("()([A-Za-z0-9]+)([(])([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)([)])()").matcher(temp);
+						if(n.find()) {
+							temp = n.group(4) + "_" + n.group(2) + "_" + n.group(6);
+							groupingVariable = n.group(4);
+						}
+						else {
+							n = Pattern.compile("()([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)()").matcher(temp);
+							if(n.find()) {
+								temp = n.group(2) + "_" + n.group(4);
+								groupingVariable = n.group(2);
+							}
+								
+						}
 					}
-					t_Conditions.put(groupingVariable,column);
-				}
-				else {
-					if(j < logic.size())
-						column = sub + logic.get(j);
-					else
-						column = sub;
-					if(t_Conditions.containsKey("0")) {
-						column = t_Conditions.get("0") + column;
+					//if pattern match avg(quant)
+					n = Pattern.compile("()([A-Za-z0-9]+)([(])([a-zA-Z0-9|*]+)([)])()").matcher(temp);
+					if(n.find()) {
+						temp = "O_" + n.group(2) + "_" + n.group(4);
+						groupingVariable = "O";
 					}
-					t_Conditions.put("0",column);
+					
+					left_t = left_t+temp;
+					if(!left_logic.isEmpty())
+						left_t = left_t+left_logic.poll();
 				}
+				//do the same for the right part
+				left = left_t;
+				m = Pattern.compile("([-+*/]*)([^-+*/]+)([-+*/]*)").matcher(right);
+				while(m.find()) {
+					temp = m.group(2);
+					n = Pattern.compile("()([A-Za-z0-9]+)([(]*)([A-Za-z0-9]*)([.])([a-zA-Z0-9|*]*)([)]*)()").matcher(temp);
+					if(n.find()) {
+						n = Pattern.compile("()([A-Za-z0-9]+)([(])([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)([)])()").matcher(temp);
+						if(n.find()) {
+							temp = n.group(4) + "_" + n.group(2) + "_" + n.group(6);
+						}
+						else {
+							n = Pattern.compile("()([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)()").matcher(temp);
+							if(n.find())
+								temp = n.group(2) + "_" + n.group(4);
+						}
+					}
+					n = Pattern.compile("()([A-Za-z0-9]+)([(])([a-zA-Z0-9|*]+)([)])()").matcher(temp);
+					if(n.find()) {
+						temp = "O_" + n.group(2) + "_" + n.group(4);
+					}
+					right_t = right_t+temp;
+					if(!right_logic.isEmpty())
+						right_t = right_t+right_logic.poll();
+				}
+				right = right_t;
+				//change == or != into .equals() or !.equals() so that String can use it
+				if(oper.contains("=="))
+					column = column + left + ".equals(" + right + ")";
+				else if(oper.contains("!="))
+					column = "!" + column + left + ".equals(" + right + ")";
+				else
+					column = column + left + oper + right;
+				if(j < logic.size())
+					column = column + logic.get(j);
 			}
+			t_Conditions.put(groupingVariable,column);
+			column ="";
 			logic.clear();
 		}
 		return t_Conditions;
@@ -152,48 +232,91 @@ public class TranslateEmf {
 		String left = "";
 		String right = "";
 		String oper = "";
+		String left_t = "";
+		String right_t = "";
+		String temp = "";
+		Queue<String> left_logic = new LinkedList<>();
+		Queue<String> right_logic = new LinkedList<>();
 		Pattern pattern = Pattern.compile(".*([=><!][=]|[<>]).*");
 		Matcher m = null;
+		Matcher n = null;
 		for(int i=0; i<Conditions.length; i++) {
-			Conditions[i] = Conditions[i].replaceAll("=", "==").replaceAll(">==", ">=").replaceAll("<==", "<=").replaceAll("<>", "!=").replaceAll(" and | AND ", "&&").replaceAll(" or | OR ", "||").replaceAll(" ", "");
+			Conditions[i] = Conditions[i].replaceAll("=", "==").replaceAll(">==", ">=").replaceAll("<==", "<=").replaceAll("<>", "!=").replaceAll(" and | AND ", "&&").replaceAll(" or | OR ", "\\|\\|").replaceAll(" ", "");
 			//find the logic and save it
 			for(int j=0; j<Conditions[i].length()-2;j++) {
-				if(Conditions[i].substring(j, j+2).matches("&&")||Conditions[i].substring(j, j+2).matches("||")) {
+				if(Conditions[i].substring(j, j+2).matches("&&")||Conditions[i].substring(j, j+2).matches("\\|\\|")) {
 					logic.add(Conditions[i].substring(j, j+2));
 				}
 			}
-			
+			//split the condition by && or ||
 			subJudge = Conditions[i].split("&&|\\|\\|");
-			
 			for(int j=0; j<subJudge.length; j++) {
+				//seperate the condition by operation
 				sub = subJudge[j].split("==|>=|<=|!=|>|<");
 				m = pattern.matcher(subJudge[j]);
 				m.find();
 				oper = m.group(1);
 				left = sub[0];
 				right = sub[1];
-				// if it is not a number
-				if(left.contains("(")) {
-					m = Pattern.compile("(.*[-+*/]*)(avg|count|sum|min|max)\\(([A-Za-z0-9]+)([.]*)([a-zA-Z]+)\\)(.*)").matcher(left);
-					m.find();
-					left =  m.group(1) + m.group(3) + "." + m.group(2) + "_" + m.group(5) + m.group(6);
-				}
-				else if(left.matches("(.*)[A-Za-z0-9][.][A-Za-z](.*)")) {
-					m = Pattern.compile("(.*[-+*/]*)([A-Za-z0-9]+)([.])([a-zA-Z]+)(.*)").matcher(left);
-					m.find();
-					left = m.group(1)+ m.group(2) + "." + m.group(4) + m.group(5);
-				}
+				left_t = "";
+				right_t = "";
 				
-				if(right.contains("(")) {
-					m = Pattern.compile("(.*[-+*/]*)(avg|count|sum|min|max)\\(([A-Za-z0-9]+)([.]*)([a-zA-Z]+)\\)(.*)").matcher(right);
-					m.find();
-					right =m.group(1) + m.group(3) + "." + m.group(2) + "_" + m.group(5) + m.group(6);
+				//further separate left and right part
+				//find all the operation in left part
+				m = Pattern.compile("([-+*/])").matcher(left);
+				while(m.find())
+					left_logic.add(m.group(1));
+				m = Pattern.compile("([-+*/])").matcher(right);
+				while(m.find())
+					right_logic.add(m.group(1));
+				m = Pattern.compile("([-+*/]*)([^-+*/]+)([-+*/]*)").matcher(left);
+				while(m.find()) {
+					temp = m.group(2);
+					n = Pattern.compile("()([A-Za-z0-9]+)([(]*)([A-Za-z0-9]*)([.])([a-zA-Z0-9|*]*)([)]*)()").matcher(temp);
+					if(n.find()) {
+						n = Pattern.compile("()([A-Za-z0-9]+)([(])([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)([)])()").matcher(temp);
+						if(n.find()) {
+							temp = n.group(4) + "_" + n.group(2) + "_" + n.group(6);
+						}
+						else {
+							n = Pattern.compile("()([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)()").matcher(temp);
+							if(n.find())
+								temp = n.group(2) + "_" + n.group(4);
+						}
+					}
+					n = Pattern.compile("()([A-Za-z0-9]+)([(])([a-zA-Z0-9]+)([)])()").matcher(temp);
+					if(n.find())
+						temp = "O_" + n.group(2) + "_" + n.group(4);
+					left_t = left_t+temp;
+					if(!left_logic.isEmpty())
+						left_t = left_t+left_logic.poll();
 				}
-				else if(right.matches("(.*)[A-Za-z0-9][.][A-Za-z](.*)")) {
-					m = Pattern.compile("(.*[-+*/]*)([A-Za-z0-9]+)([.])([a-zA-Z]+)(.*)").matcher(right);
-					m.find();
-					right = m.group(1)+ m.group(2) + "." + m.group(4) + m.group(5);
+				left = left_t;
+				m = Pattern.compile("([-+*/]*)([^-+*/]+)([-+*/]*)").matcher(right);
+				//find the number or things like x.quant or avg(quant) or avg(x.quant) in the left part, change avg(x.quant) into x_avg_quant
+				while(m.find()) {
+					temp = m.group(2);
+					n = Pattern.compile("()([A-Za-z0-9]+)([(]*)([A-Za-z0-9]*)([.])([a-zA-Z0-9|*]*)([)]*)()").matcher(temp);
+					if(n.find()) {
+						n = Pattern.compile("()([A-Za-z0-9]+)([(])([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)([)])()").matcher(temp);
+						if(n.find()) {
+							temp = n.group(4) + "_" + n.group(2) + "_" + n.group(6);
+						}
+						else {
+							n = Pattern.compile("()([A-Za-z0-9]+)([.])([a-zA-Z0-9|*]+)()").matcher(temp);
+							if(n.find())
+								temp = n.group(2) + "_" + n.group(4);
+						}
+					}
+					n = Pattern.compile("()([A-Za-z0-9]+)([(])([A-Za-z0-9]+)([)])()").matcher(temp);
+					if(n.find())
+						temp = "O_" + n.group(2) + "_" + n.group(4);
+					right_t = right_t+temp;
+					if(!right_logic.isEmpty())
+						right_t = right_t+right_logic.poll();
 				}
+				right = right_t;
+				
 				if(j < logic.size())
 					t_Conditions = t_Conditions + left + oper + right + logic.get(j);
 				else
